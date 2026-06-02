@@ -1,0 +1,36 @@
+# Core FastAPI and web framework dependencies
+fastapi==0.115.6
+uvicorn==0.32.1
+python-multipart
+pydantic==2.12.4
+
+# HTTP client for external API calls
+httpx==0.28.1
+
+# Environment configuration
+python-dotenv==1.0.0
+
+# LangChain dependencies for LLM integration
+langchain-groq==1.1.1
+langchain-community==0.4.1
+langchain-core==1.2.2
+
+# Scientific computing and data processing
+numpy==1.24.3
+pandas==2.0.3
+
+# Bioinformatics and glycan analysis
+glycowork==1.5.0
+glypy==1.0.17
+biopython==1.85
+
+# Chemistry and molecular analysis
+rdkit==2024.9.6
+
+# Machine learning and deep learning
+torch==2.9.1
+torch-geometric==2.7.0
+
+# Additional utilities
+requests==2.31.0
+urllib3==2.0.4
