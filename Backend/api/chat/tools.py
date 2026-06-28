@@ -78,134 +78,188 @@ DATABASE_TOOLS = {
 TOOL_CAPABILITIES = {**LITERATURE_TOOLS, **DATABASE_TOOLS}
 
 # ==================================================
+# LLM-based Tool Router
+# ==================================================
+
+def _llm_route_tools(query: str, use_literature: bool, use_databases: bool) -> dict:
+    """
+    Use a lightweight LLM call to intelligently select which specific tools
+    to activate within the chosen categories, instead of keyword scoring.
+
+    Returns a dict of booleans keyed by tool name.
+    """
+    from .llm import llm  # import here to avoid circular imports
+
+    available = []
+    if use_literature:
+        available += ["pubmed", "arxiv"]
+    if use_databases:
+        available += ["glycan_db", "structure_analysis", "synthesis"]
+
+    if not available:
+        return {
+            "use_pubmed": False,
+            "use_arxiv": False,
+            "use_glycan_db": False,
+            "use_structure_analysis": False,
+            "use_synthesis": False,
+            "reasoning": "No categories selected.",
+        }
+
+    tool_descriptions = {
+        "pubmed": "PubMed — peer-reviewed life-science literature",
+        "arxiv": "ArXiv — computational biology / bioinformatics preprints and methods",
+        "glycan_db": "GlyTouCan database — structural data lookup by accession or format",
+        "structure_analysis": "Structure Analysis — composition, linkage, branching, stereochemistry",
+        "synthesis": "Synthesis Pathways — biosynthetic enzymes, pathways, regulation",
+    }
+
+    descriptions_block = "\n".join(
+        f"- {k}: {v}" for k, v in tool_descriptions.items() if k in available
+    )
+
+    routing_prompt = (
+        f"You are a tool-selection router for a glycomics research assistant.\n"
+        f"Available tools:\n{descriptions_block}\n\n"
+        f"User query: \"{query}\"\n\n"
+        f"Select only the tools that are genuinely useful for answering this query. "
+        f"Respond with ONLY a JSON object, nothing else. Example:\n"
+        f'{{ "pubmed": true, "arxiv": false, "glycan_db": false, '
+        f'"structure_analysis": true, "synthesis": false }}'
+    )
+
+    try:
+        import json, re
+        raw = llm.invoke(routing_prompt)
+        # extract the content string from the AIMessage
+        text = raw.content if hasattr(raw, "content") else str(raw)
+        # pull out the first JSON object
+        match = re.search(r"\{[^}]+\}", text, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group())
+            result = {
+                "use_pubmed": bool(parsed.get("pubmed", False)) and use_literature,
+                "use_arxiv": bool(parsed.get("arxiv", False)) and use_literature,
+                "use_glycan_db": bool(parsed.get("glycan_db", False)) and use_databases,
+                "use_structure_analysis": bool(parsed.get("structure_analysis", False)) and use_databases,
+                "use_synthesis": bool(parsed.get("synthesis", False)) and use_databases,
+                "reasoning": f"LLM router selected from: {list(parsed.keys())}",
+            }
+            # Guarantee at least one tool is active per selected category
+            if use_literature and not result["use_pubmed"] and not result["use_arxiv"]:
+                result["use_pubmed"] = True
+                result["reasoning"] += " | Forced PubMed as Literature fallback."
+            if use_databases and not any([
+                result["use_glycan_db"],
+                result["use_structure_analysis"],
+                result["use_synthesis"],
+            ]):
+                result["use_structure_analysis"] = True
+                result["reasoning"] += " | Forced Structure Analysis as Databases fallback."
+            return result
+    except Exception as e:
+        logger.warning(f"LLM router failed ({e}), falling back to keyword heuristic")
+
+    # Fallback to keyword heuristic if LLM routing fails
+    return _keyword_route_tools(query, use_literature, use_databases)
+
+
+def _keyword_route_tools(query: str, use_literature: bool, use_databases: bool) -> dict:
+    """Keyword-scoring fallback used when the LLM router is unavailable."""
+    query_lower = query.lower()
+
+    arxiv_keywords = [
+        "computational", "algorithm", "machine learning", "deep learning", "ai",
+        "bioinformatics", "modeling", "simulation", "theoretical", "method",
+        "tool", "software", "database", "prediction", "classification",
+        "neural network", "model", "framework", "approach", "technique",
+        "preprint", "latest", "cutting-edge", "novel method", "new approach",
+    ]
+    glycan_db_keywords = [
+        "glytoucan", "accession", "wurcs", "iupac", "glycoct", "mass", "formula",
+        "molecular weight", "database", "lookup", "structure id", "glycan id",
+        "identifier", "registry", "repository",
+    ]
+    structure_keywords = [
+        "structure", "analyze", "composition", "linkage", "branching", "branch",
+        "monosaccharide", "residue", "anomeric", "stereochemistry", "conformation",
+        "topology", "connectivity", "bond", "glycosidic", "reducing end",
+        "non-reducing", "terminal", "internal", "core", "antenna", "arm",
+    ]
+    synthesis_keywords = [
+        "synthesis", "biosynthesis", "pathway", "enzyme", "glycosyltransferase",
+        "transferase", "mechanism", "reaction", "substrate", "donor", "acceptor",
+        "regulation", "expression", "activity", "kinetics", "specificity",
+        "er", "golgi", "processing", "modification", "maturation", "assembly",
+    ]
+
+    import re as _re
+    glycan_db_score = sum(1 for k in glycan_db_keywords if k in query_lower)
+    if _re.search(r"G\d{5}[A-Z]{2}", query):
+        glycan_db_score += 5
+
+    use_arxiv = use_literature and sum(1 for k in arxiv_keywords if k in query_lower) > 0
+    use_glycan_db = use_databases and glycan_db_score > 0
+    use_structure = use_databases  # always include when databases selected
+    use_synthesis = use_databases and sum(1 for k in synthesis_keywords if k in query_lower) > 0
+
+    return {
+        "use_pubmed": use_literature,
+        "use_arxiv": use_arxiv,
+        "use_glycan_db": use_glycan_db,
+        "use_structure_analysis": use_structure,
+        "use_synthesis": use_synthesis,
+        "reasoning": "Keyword heuristic (LLM router unavailable)",
+    }
+
+
+# ==================================================
 # Intelligent Tool Selection Based on User Query
 # ==================================================
 
 def analyze_query_for_literature_tools(query: str) -> list[str]:
-    """
-    Analyze user query to determine which literature tools to use
-    Returns list of tool IDs to activate
-    """
-    query_lower = query.lower()
-    selected_tools = []
-    
-    # Always use PubMed for literature searches as it's the primary source
-    selected_tools.append('pubmed')
-    
-    # Keywords that suggest ArXiv (computational, theoretical, preprints)
-    arxiv_keywords = [
-        'computational', 'algorithm', 'machine learning', 'deep learning', 'ai',
-        'bioinformatics', 'modeling', 'simulation', 'theoretical', 'method',
-        'tool', 'software', 'database', 'prediction', 'classification',
-        'neural network', 'model', 'framework', 'approach', 'technique',
-        'preprint', 'latest', 'cutting-edge', 'novel method', 'new approach'
-    ]
-    
-    # Check for ArXiv indicators  
-    arxiv_score = sum(1 for keyword in arxiv_keywords if keyword in query_lower)
-    
-    # Add ArXiv if computational aspects are mentioned
-    if arxiv_score > 0:
-        selected_tools.append('arxiv')
-    
-    return selected_tools
+    """Kept for backward compatibility — delegates to unified router."""
+    r = _keyword_route_tools(query, use_literature=True, use_databases=False)
+    tools = []
+    if r["use_pubmed"]:
+        tools.append("pubmed")
+    if r["use_arxiv"]:
+        tools.append("arxiv")
+    return tools or ["pubmed"]
+
 
 def analyze_query_for_database_tools(query: str) -> list[str]:
-    """
-    Analyze user query to determine which database tools to use
-    Returns list of tool IDs to activate
-    """
-    query_lower = query.lower()
-    selected_tools = []
-    
-    # Keywords that suggest Glycan Database
-    glycan_db_keywords = [
-        'glytoucan', 'accession', 'g00', 'g01', 'g02', 'g03', 'g04', 'g05',
-        'wurcs', 'iupac', 'glycoct', 'mass', 'formula', 'molecular weight',
-        'database', 'lookup', 'search database', 'find structure', 'structure id',
-        'glycan id', 'identifier', 'registry', 'repository'
-    ]
-    
-    # Keywords that suggest Structure Analysis
-    structure_keywords = [
-        'structure', 'analyze', 'composition', 'linkage', 'branching', 'branch',
-        'monosaccharide', 'residue', 'anomeric', 'stereochemistry', 'conformation',
-        'topology', 'connectivity', 'bond', 'glycosidic', 'reducing end',
-        'non-reducing', 'terminal', 'internal', 'core', 'antenna', 'arm'
-    ]
-    
-    # Keywords that suggest Synthesis Pathways
-    synthesis_keywords = [
-        'synthesis', 'biosynthesis', 'pathway', 'enzyme', 'glycosyltransferase',
-        'transferase', 'mechanism', 'reaction', 'substrate', 'donor', 'acceptor',
-        'regulation', 'expression', 'activity', 'kinetics', 'specificity',
-        'er', 'golgi', 'processing', 'modification', 'maturation', 'assembly'
-    ]
-    
-    # Calculate scores
-    glycan_db_score = sum(1 for keyword in glycan_db_keywords if keyword in query_lower)
-    structure_score = sum(1 for keyword in structure_keywords if keyword in query_lower)
-    synthesis_score = sum(1 for keyword in synthesis_keywords if keyword in query_lower)
-    
-    # Check for specific accession patterns
-    import re
-    if re.search(r'G\d{5}[A-Z]{2}', query):
-        glycan_db_score += 5  # Strong indicator for GlyTouCan
-    
-    # Always include structure analysis as it's the most general
-    selected_tools.append('structure_analysis')
-    
-    # Add specific tools based on scores
-    if glycan_db_score > 0:
-        selected_tools.append('glycan_db')
-    
-    if synthesis_score > 0:
-        selected_tools.append('synthesis')
-    
-    # If no specific indicators, add synthesis for comprehensive coverage
-    if glycan_db_score == 0 and synthesis_score == 0:
-        selected_tools.append('synthesis')
-    
-    return selected_tools
+    """Kept for backward compatibility — delegates to unified router."""
+    r = _keyword_route_tools(query, use_literature=False, use_databases=True)
+    tools = []
+    if r["use_structure_analysis"]:
+        tools.append("structure_analysis")
+    if r["use_glycan_db"]:
+        tools.append("glycan_db")
+    if r["use_synthesis"]:
+        tools.append("synthesis")
+    return tools or ["structure_analysis"]
+
 
 def intelligent_tool_selection(query: str, use_literature: bool = False, use_databases: bool = False) -> dict:
     """
-    Intelligently select specific tools based on user query and category preferences
-    
-    Args:
-        query: User's question/prompt
-        use_literature: Whether user selected Literature category
-        use_databases: Whether user selected Databases category
-        
-    Returns:
-        Dictionary with specific tool selections
+    Intelligently select specific tools based on user query and category preferences.
+    Uses LLM routing with keyword-heuristic fallback.
     """
-    result = {
-        'use_pubmed': False,
-        'use_arxiv': False,
-        'use_glycan_db': False,
-        'use_structure_analysis': False,
-        'use_synthesis': False,
-        'selected_tools': [],
-        'reasoning': []
-    }
-    
-    if use_literature:
-        literature_tools = analyze_query_for_literature_tools(query)
-        result['use_pubmed'] = 'pubmed' in literature_tools
-        result['use_arxiv'] = 'arxiv' in literature_tools
-        result['selected_tools'].extend(literature_tools)
-        result['reasoning'].append(f"Literature tools selected: {', '.join(literature_tools)}")
-    
-    if use_databases:
-        database_tools = analyze_query_for_database_tools(query)
-        result['use_glycan_db'] = 'glycan_db' in database_tools
-        result['use_structure_analysis'] = 'structure_analysis' in database_tools
-        result['use_synthesis'] = 'synthesis' in database_tools
-        result['selected_tools'].extend(database_tools)
-        result['reasoning'].append(f"Database tools selected: {', '.join(database_tools)}")
-    
-    return result
+    r = _llm_route_tools(query, use_literature, use_databases)
+    selected = []
+    if r["use_pubmed"]:
+        selected.append("pubmed")
+    if r["use_arxiv"]:
+        selected.append("arxiv")
+    if r["use_glycan_db"]:
+        selected.append("glycan_db")
+    if r["use_structure_analysis"]:
+        selected.append("structure_analysis")
+    if r["use_synthesis"]:
+        selected.append("synthesis")
+    r["selected_tools"] = selected
+    return r
 
 # ==================================================
 # External Tool Functions

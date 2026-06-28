@@ -17,6 +17,15 @@ from sklearn.cluster import KMeans
 from typing import List, Optional
 from glycowork.motif.processing import IUPAC_to_SMILES
 
+# ---------------------------------------------------------------------------
+# Optional glycowork graph-similarity import
+# ---------------------------------------------------------------------------
+try:
+    from glycowork.motif.graph import compare_glycans
+    _GLYCOWORK_SIMILARITY_AVAILABLE = True
+except Exception:
+    _GLYCOWORK_SIMILARITY_AVAILABLE = False
+
 # Pydantic models
 class GlycanInput(BaseModel):
     name: str = ""
@@ -29,7 +38,7 @@ class ClusterRequest(BaseModel):
     distance_threshold: float = 0.5
     linkage_method: str = "average"
     # Shared params
-    metric: str = "tanimoto"
+    metric: str = "tanimoto"          # tanimoto | dice | cosine | euclidean | glycowork
     fingerprint_type: str = "morgan"
     radius: int = 2
     n_bits: int = 2048
@@ -90,6 +99,35 @@ class GlycanClusterAnalyzer:
             raise ValueError(f"Unknown metric: {metric}")
         return float(1 - sim)
 
+    # ------------------------------------------------------------------
+    # glycowork-native pairwise distance matrix
+    # ------------------------------------------------------------------
+    @staticmethod
+    def compute_glycowork_distance_matrix(iupac_list: List[str]) -> np.ndarray:
+        """
+        Build a pairwise distance matrix using glycowork's graph-based
+        compare_glycans() similarity (1 - similarity).
+        Falls back gracefully if glycowork similarity is unavailable.
+        """
+        if not _GLYCOWORK_SIMILARITY_AVAILABLE:
+            raise ValueError(
+                "glycowork graph similarity is not available in this environment. "
+                "Please choose a fingerprint-based metric instead."
+            )
+        n = len(iupac_list)
+        dist_matrix = np.zeros((n, n), dtype=float)
+        for i in range(n):
+            for j in range(i + 1, n):
+                try:
+                    sim = compare_glycans(iupac_list[i], iupac_list[j])
+                    # compare_glycans returns a similarity score in [0, 1]
+                    d = float(1.0 - sim)
+                except Exception:
+                    d = 1.0   # treat comparison failure as maximum distance
+                dist_matrix[i, j] = d
+                dist_matrix[j, i] = d
+        return dist_matrix
+
     def cluster_glycans_from_dicts(self, glycan_dicts, distance_threshold=0.5, linkage_method="average", metric="tanimoto"):
         if len(glycan_dicts) < 2:
             raise ValueError("At least 2 glycans are required for clustering")
@@ -97,26 +135,32 @@ class GlycanClusterAnalyzer:
         names = [g["name"] for g in glycan_dicts]
         smiles = [g["smiles"] for g in glycan_dicts]
 
-        # For "ward", force metric to euclidean
-        if linkage_method == "ward" and metric != "euclidean":
-            metric = "euclidean"
+        # glycowork metric uses IUPAC strings, not fingerprints — handled separately
+        if metric == "glycowork":
+            iupac_list = [g.get("iupac") or g.get("smiles") for g in glycan_dicts]
+            dist_matrix = self.compute_glycowork_distance_matrix(iupac_list)
+            dist_array = squareform(dist_matrix)
+        else:
+            # For "ward", force metric to euclidean
+            if linkage_method == "ward" and metric != "euclidean":
+                metric = "euclidean"
 
-        mols = []
-        for name, s in zip(names, smiles):
-            mol = Chem.MolFromSmiles(s)
-            if mol is None:
-                raise ValueError(f"Invalid SMILES for {name}: {s}")
-            mols.append(mol)
+            mols = []
+            for name, s in zip(names, smiles):
+                mol = Chem.MolFromSmiles(s)
+                if mol is None:
+                    raise ValueError(f"Invalid SMILES for {name}: {s}")
+                mols.append(mol)
 
-        fps = [self._fingerprint(m) for m in mols]
-        dist = []
-        n = len(fps)
-        for i in range(n):
-            for j in range(i + 1, n):
-                d = self._compute_distance(fps[i], fps[j], metric)
-                dist.append(d)
+            fps = [self._fingerprint(m) for m in mols]
+            dist = []
+            n = len(fps)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    d = self._compute_distance(fps[i], fps[j], metric)
+                    dist.append(d)
+            dist_array = np.array(dist, dtype=float)
 
-        dist_array = np.array(dist, dtype=float)
         if dist_array.size == 0:
             raise ValueError("Not enough data to compute pairwise distances")
 
@@ -254,9 +298,9 @@ def normalize_glycans_with_iupac(glycans_in):
             name = iupac or f"Glycan_{idx+1}"
 
         if smiles:
-            normalized.append({"name": name, "smiles": smiles})
+            normalized.append({"name": name, "smiles": smiles, "iupac": iupac or ""})
         elif iupac:
-            normalized.append({"name": name, "smiles": None})
+            normalized.append({"name": name, "smiles": None, "iupac": iupac})
             iupac_list.append(iupac)
             iupac_positions.append(len(normalized) - 1)
         else:
@@ -276,6 +320,7 @@ def normalize_glycans_with_iupac(glycans_in):
             if not smi:
                 raise ValueError(f"Cannot convert IUPAC '{iupac}' for {normalized[pos]['name']}: got empty SMILES")
             normalized[pos]["smiles"] = smi
+            normalized[pos]["iupac"] = iupac
 
     # Final sanity check
     for g in normalized:
@@ -404,6 +449,7 @@ def run_cluster(request: ClusterRequest):
             "heatmap": heatmap_base64,
             "n_clusters": int(result["n_clusters"]),
             "clusters": clusters,
+            "glycowork_similarity_available": _GLYCOWORK_SIMILARITY_AVAILABLE,
             "params": {
                 "clustering_method": clustering_method,
                 "distance_threshold": distance_threshold,
