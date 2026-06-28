@@ -5,7 +5,7 @@
 🌐 **Live Platform:** [https://glycanbench.sastra.edu/](https://glycanbench.sastra.edu/)  
 📖 **API Docs:** `http://127.0.0.1:5000/docs` (when running locally)
 
-GlycanBench is a full-stack integrated web platform for glycan analysis — spanning conception, visualization, analysis, alignment, clustering, property prediction, and literature exploration in Glycobiology.
+GlycanBench is a full-stack integrated web platform for glycan analysis — spanning structure building, visualization, analysis, alignment, clustering, property prediction, and AI-powered literature exploration in glycobiology.
 
 ---
 
@@ -26,46 +26,54 @@ GlycanBench is a full-stack integrated web platform for glycan analysis — span
 
 ## Features
 
-### 🔮 Predict
+### 🏗️ Create
 | Tool | Description |
 |------|-------------|
-| **Immunogenicity Prediction** | Graph Neural Network (MPNN) predicts glycan immunogenicity from IUPAC-condensed sequences. Outputs Immunogenic / Non-Immunogenic label with confidence score, motif detection (AlphaGal, NonHumanSialicAcid, ComplexNGlycan), and vocabulary analysis. |
-| **GlycomicsChat** | AI-powered glycomics assistant (Groq LLM) with PubMed + ArXiv literature search, GlyTouCan accession lookup, and structural data retrieval. |
-
-### 🔬 Analyse
-| Tool | Description |
-|------|-------------|
-| **Monosaccharide Characterization** | Generate characterization plots for monosaccharide residues using glycowork. |
-| **Molecule Descriptors** | Calculate ~20 physicochemical descriptors (MW, TPSA, LogP, rings, H-bond donors/acceptors, stereocenters, Pyranose/Furanose rings, N-acetyl groups, elemental composition) via RDKit. |
-| **Glycan Insight** | Retrieve biological context for a glycan — species, phyla, motifs, cell lines, diseases, glycan class — from glycowork. |
-| **Motif Mutation** | Simulate random structural mutations and analyze motif frequency distributions. |
-
-### 📐 Align
-| Tool | Description |
-|------|-------------|
-| **Sequence Alignment** | Global pairwise alignment of glycan sequences using the **GLYSUM substitution matrix** or custom scoring. Powered by BioPython PairwiseAligner. Outputs aligned sequences, match line, alignment score, and percent identity. |
-
-### 📊 Compare & Cluster
-| Tool | Description |
-|------|-------------|
-| **Compare Fingerprints** | Side-by-side Tanimoto similarity across Morgan (R2/R3), AtomPair, Torsion, and RDKit fingerprints for two glycan SMILES. |
-| **Cluster Glycans** | Cluster ≥3 glycans by structural fingerprint similarity using agglomerative (hierarchical) or k-means clustering. Outputs dendrogram, pairwise heatmap, and cluster assignments. |
-| **Find Optimal Clusters** | Threshold sweep (agglomerative) or k sweep (k-means) to determine optimal cluster count via elbow plot. |
-| **Detect Outlier Glycans** | Identify singleton clusters as potential structural outliers, with mean-distance scoring and STRONG OUTLIER flagging. |
+| **Glycan Molecule** | Click-to-build glycan sequence constructor with grammar enforcement. Simultaneously generates SNFG 2D image, format conversions (IUPAC/SMILES/GlycoCT/WURCS), and a 3D conformer (ETKDGv3 + MMFF94s + UFF pipeline) rendered in 3Dmol.js. |
+| **Biosynthetic Networks** | Interactive Cytoscape.js biosynthetic network from user-supplied glycan sets. Configurable PTMs, reducing-end roots, and edge types (monolink / full_reaction / enzyme). Supports dark/light mode, node search, PNG export. |
+| **Format Converter** | Interconvert glycan representations: IUPAC ↔ WURCS ↔ GlycoCT ↔ SMILES. Unsupported paths (IUPAC → GlycoCT/WURCS) are surfaced explicitly as orange notices rather than silent failures. |
 
 ### 👁️ Visualize
 | Tool | Description |
 |------|-------------|
-| **3D Representation** | Interactive 3D molecular viewer (3Dmol.js) from IUPAC sequences. Styles: Ball & Stick, Spacefill (CPK), Wireframe, Stick Figure. Screenshot export. |
-| **2D Draw** | SNFG-style 2D glycan structure rendering with optional motif highlighting. |
-| **KEGG Pathway View** | Map glycans to KEGG metabolic pathways with direct pathway image display. |
+| **2D Draw** | SNFG-style 2D glycan structure rendering with optional per-motif color highlighting via glycowork `GlycoDraw`. |
+| **3D Representation** | On-demand 3D conformer from any IUPAC string using a tiered optimization pipeline: ETKDGv3 (chirality enforcement, small-ring torsion corrections) → MMFF94s (up to 2×2000 iterations) → UFF fallback. Rendered in 3Dmol.js with four display styles and screenshot export. |
+| **KEGG Pathway View** | Live KEGG pathway maps with server-side CORS proxy, debounced autocomplete search (FastAPI `Query` parameter, min 3 chars), and direct PNG download. Ten curated glycan pathway examples provided. |
 
-### 🏗️ Create
+### 🔬 Analyse
 | Tool | Description |
 |------|-------------|
-| **Glycan Molecule** | 3D structure builder from IUPAC sequence. |
-| **Biosynthetic Networks** | Build and visualize glycan biosynthetic pathway networks with configurable PTMs, roots, and edge types (monolink, full_reaction, enzyme). |
-| **Format Converter** | Interconvert glycan representations: IUPAC ↔ WURCS ↔ GlycoCT ↔ SMILES. |
+| **Monosaccharide** | Taxonomic-rank-stratified occurrence charts for any monosaccharide, with configurable rank, focus, modification toggle, and frequency threshold. Powered by `glycowork.motif.analysis.characterize_monosaccharide()`. |
+| **Glycan Insight** | Retrieve full biological context — species, phyla, motifs, cell lines, disease associations, glycan class, GlyTouCan ID — from a single IUPAC string or GlyTouCan accession. Dashboard with Chart.js Doughnut (phyla), species tag cloud, disease table. |
+| **Molecule Descriptors** | 17 physicochemical descriptors, elemental composition with O/N ratio, 5 glycan-specific SMARTS motif counts (pyranose, furanose, N-acetyl, carboxyl, sulfate), and 5 × 2048-bit fingerprints (Morgan R2/R3, Atom Pair, Torsion, RDKit). CSV export and PubChem link. |
+| **Motif Mutation** | Stochastic in-silico glycan mutagenesis with three intensity modes (normal / moderate / extreme). Generates configurable numbers of mutant sequences, extracts pentamer glycoword motifs, and plots frequency distribution as a Chart.js bar chart. |
+
+### 🔗 Compare
+| Tool | Description |
+|------|-------------|
+| **Two Glycans** | Side-by-side Tanimoto similarity across five 2048-bit fingerprint types (Morgan R2/R3, Atom Pair, Torsion, RDKit). Per-fingerprint hover tooltips explain what each encodes. |
+
+### 📐 Align
+| Tool | Description |
+|------|-------------|
+| **Glycan Sequences** | Global Needleman-Wunsch alignment using the **GLYSUM** glycan-specific substitution matrix or custom match/mismatch/gap scoring. Fuzzy token resolution (cutoff 0.85) handles near-exact monosaccharide names. Outputs columnar alignment, score, and percent identity. TXT export. |
+
+### 📊 Cluster
+| Tool | Description |
+|------|-------------|
+| **Cluster Glycans** | Cluster ≥3 glycans using agglomerative (hierarchical) or K-means methods. Configurable fingerprint type, distance metric (Tanimoto / Dice / Cosine / Euclidean / **glycowork graph similarity**), and linkage method. Outputs dendrogram, heatmap, and CSV of assignments. |
+| **Optimize Clusters** | Threshold sweep for agglomerative clustering produces an elbow plot (cluster count vs. distance threshold) to guide parameter selection. |
+| **Detect Outliers** | Singleton-cluster detection with mean pairwise distance scoring. Singletons with distance > 0.45 are flagged as STRONG OUTLIERS. |
+
+### 🔮 Predict
+| Tool | Description |
+|------|-------------|
+| **Immunogenicity** | MPNN (Message Passing Neural Network) predicts immunogenicity from IUPAC-condensed sequences. Glycoword-graph representation, vocabulary analysis, rule-based motif flags (AlphaGal, Neu5Gc, complex N-glycan core). Animated probability bar, confidence badge, JSON download. |
+
+### 💬 Chat
+| Tool | Description |
+|------|-------------|
+| **GlycomicsChat** | Glycomics-domain-enforced AI assistant (Groq `openai/gpt-oss-120b`). **LLM-based tool router** selects PubMed, ArXiv, GlyTouCan DB, Structure Analysis, or Synthesis tools per query, with keyword-heuristic fallback. Question-type analysis and heuristic confidence scoring. Structured panels for resolved GlyTouCan accession data (WURCS, IUPAC, mass, formula). |
 
 ---
 
@@ -77,18 +85,22 @@ GlycanBench is a full-stack integrated web platform for glycan analysis — span
 | FastAPI | 0.115.6 | REST API framework |
 | uvicorn | 0.32.1 | ASGI server |
 | pydantic | 2.12.4 | Data validation |
-| torch | 2.9.1 | Deep learning (MPNN models) |
+| torch | 2.9.1 | Deep learning (MPNN inference) |
 | torch-geometric | 2.7.0 | Graph Neural Networks |
-| rdkit | 2024.9.6 | Cheminformatics & fingerprints |
-| glycowork | 1.5.0 | Glycan processing & analysis |
-| glypy | 1.0.17 | Glycan format conversion |
-| biopython | 1.85 | Sequence alignment |
-| langchain-groq | 1.1.1 | LLM integration (Groq) |
-| langchain-community | 0.4.1 | PubMed & ArXiv tools |
+| rdkit | 2024.9.6 | Cheminformatics, fingerprints, 3D conformers |
+| glycowork | 1.5.0 | Glycan processing, biosynthetic networks, similarity |
+| glypy | 1.0.17 | GlycoCT / WURCS format conversion |
+| biopython | 1.85 | GLYSUM-based sequence alignment |
+| langchain-groq | 1.1.1 | Groq LLM integration |
+| langchain-community | 0.4.1 | PubMed & ArXiv search tools |
+| scipy | — | Hierarchical clustering |
+| scikit-learn | — | K-means clustering |
+| seaborn / matplotlib | — | Dendrogram and heatmap plots |
 | numpy | 1.24.3 | Numerical computing |
 | pandas | 2.0.3 | Data handling |
-| httpx | 0.28.1 | HTTP client |
-| python-dotenv | 1.0.0 | Environment config |
+| httpx | 0.28.1 | Async HTTP (GlyTouCan API calls) |
+| requests | 2.31.0 | Sync HTTP (KEGG API proxy) |
+| python-dotenv | 1.0.0 | Environment configuration |
 
 ### Frontend
 | Package | Purpose |
@@ -98,10 +110,12 @@ GlycanBench is a full-stack integrated web platform for glycan analysis — span
 | Tailwind CSS | Styling |
 | Framer Motion | Animations |
 | 3Dmol.js | 3D molecular visualization |
-| React Router v6 | Client-side routing |
+| Cytoscape.js | Biosynthetic network graph |
+| Chart.js + react-chartjs-2 | Doughnut & bar charts |
+| react-zoom-pan-pinch | KEGG pathway interactive viewer |
+| React Router v7 | Client-side routing |
 | Axios | HTTP requests |
 | React Icons | Icon library |
-| React Parallax Tilt | Card tilt effects |
 
 ---
 
@@ -115,12 +129,12 @@ GlycanBench/
 │   ├── start_server.py                # Server startup script
 │   ├── api/
 │   │   ├── model_api.py               # POST /api/validate, /api/predict (MPNN)
-│   │   ├── cluster_api.py             # POST /api/cluster/run
-│   │   ├── seq_align_api.py           # POST /api/align
+│   │   ├── cluster_api.py             # POST /api/cluster/run (glycowork metric supported)
+│   │   ├── seq_align_api.py           # POST /api/align (GLYSUM + custom scoring)
 │   │   ├── compare_api.py             # POST /api/compare_glycans
 │   │   ├── descriptor_api.py          # POST /api/descriptor
-│   │   ├── visualize_api.py           # POST /api/visualize
-│   │   ├── draw_api.py                # POST /api/draw
+│   │   ├── visualize_api.py           # POST /api/visualize (ETKDGv3+MMFF94s+UFF)
+│   │   ├── draw_api.py                # POST /api/draw (SNFG + motif highlight)
 │   │   ├── characterize_api.py        # POST /api/characterize
 │   │   ├── convert_api.py             # POST /api/convert
 │   │   ├── motif_api.py               # POST /api/motif/mutate, /small, /find
@@ -129,9 +143,9 @@ GlycanBench/
 │   │   ├── insight_api.py             # POST /api/glycan_insight
 │   │   ├── species_api.py             # GET /api/download
 │   │   └── chat/
-│   │       ├── router.py              # POST /api/GlycomicsChat + 10 helper endpoints
+│   │       ├── router.py              # POST /api/GlycomicsChat + helper endpoints
 │   │       ├── llm.py                 # Groq LLM chain (glycomics system prompt)
-│   │       ├── tools.py               # PubMed + ArXiv search tools
+│   │       ├── tools.py               # LLM router + PubMed/ArXiv tools
 │   │       ├── glycan_utils.py        # GlyTouCan API integration
 │   │       ├── capabilities.py        # Tool capability detection
 │   │       ├── config.py              # API keys, constants, enums
@@ -140,48 +154,38 @@ GlycanBench/
 │   │   ├── Models_MPNN_immunoClassifier_final.pt   # Active MPNN model
 │   │   ├── GAT_immunoClassifier_large.pt
 │   │   ├── GIN_immunoClassifier_large.pt
-│   │   ├── LSTM_immunoClassifier_large.pt
-│   │   ├── models_glycoletters_model.pt
-│   │   └── models_glycowords_model.pt
+│   │   └── LSTM_immunoClassifier_large.pt
 │   ├── dataset/
-│   │   ├── GLYSUM.xlsx                # Glycan substitution matrix
-│   │   ├── merged_glycan_dataset.csv  # Main glycan dataset
-│   │   ├── monosaccharides_counts.csv # Monosaccharide frequency counts
-│   │   └── species_data.csv           # Species-level glycan data
+│   │   ├── GLYSUM.xlsx                # Glycan substitution matrix (Alocci et al. 2015)
+│   │   ├── merged_glycan_dataset.csv
+│   │   ├── monosaccharides_counts.csv # Monosaccharide pool for mutation sampling
+│   │   └── species_data.csv
 │   └── vocab/
 │       └── glycoword_vocab.json       # Glycoword vocabulary for MPNN
 │
-└── Frontend/
-    └── src/
-        ├── App.tsx                    # Router + route definitions (24 routes)
-        ├── Components/
-        │   ├── Home.tsx               # Hero, typing animation, CTA buttons
-        │   ├── Header.tsx             # Sticky header + mobile hamburger
-        │   ├── NavBar.tsx             # Desktop mega-menu + mobile sidebar
-        │   └── Footer.tsx             # Navigation grid + citation
-        └── Pages/
-            ├── Predict/
-            │   ├── Prediction/        # MPNN immunogenicity predictor
-            │   └── Chat/              # GlycomicsChat UI
-            ├── Analyze/
-            │   ├── CharacterizeForm/  # Monosaccharide characterization
-            │   ├── DescriptorCalculator/ # Molecule descriptors
-            │   ├── Visualization/     # 3D viewer (3Dmol.js)
-            │   ├── GlycanDrawer/      # 2D SNFG drawing
-            │   ├── CompareGlycans/    # Fingerprint comparison
-            │   ├── ClusterMultipleGlycans.tsx  # Clustering
-            │   ├── OptimalClusters.tsx         # Optimal k analysis
-            │   ├── DetectOutlierGlycans.tsx    # Outlier detection
-            │   ├── MotifMutation/     # Motif mutation simulator
-            │   ├── GlycanFormatConverter/      # Format conversion
-            │   └── PathwayViewer/     # KEGG pathway view
-            ├── Align/
-            │   └── SequenceAlignment/ # GLYSUM-based alignment
-            ├── Create/
-            │   ├── GlycanMolecule/    # 3D molecule builder
-            │   └── BiosyntheticNetworks/ # Network visualization
-            └── Browse/
-                └── GlycanInsight/     # Species, motifs, diseases
+├── Frontend/
+│   └── src/
+│       ├── App.tsx                    # Router + 24 route definitions
+│       ├── Components/
+│       │   ├── Home.tsx
+│       │   ├── Header.tsx
+│       │   ├── NavBar.tsx             # Desktop mega-menu + mobile sidebar
+│       │   └── Footer.tsx
+│       └── Pages/
+│           ├── Predict/Prediction/    # MPNN immunogenicity predictor
+│           ├── Predict/Chat/          # GlycomicsChat UI
+│           ├── Analyze/               # Characterize, Descriptors, Insight,
+│           │                          #   MotifMutation, Visualization, Draw,
+│           │                          #   Compare, Cluster (×3), FormatConverter,
+│           │                          #   PathwayViewer
+│           ├── Align/SequenceAlignment/
+│           ├── Create/GlycanMolecule/
+│           ├── Create/BiosyntheticNetworks/
+│           └── Browse/GlycanInsight/
+│
+├── STATE_OF_THE_ART.md                # Tool-by-tool scientific comparison table
+├── STATE_OF_THE_ART.docx              # Word version of the above
+└── README.md                          # This file
 ```
 
 ---
@@ -191,9 +195,9 @@ GlycanBench/
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- conda or virtualenv (recommended)
+- A [Groq API key](https://console.groq.com/) for GlycomicsChat
 
-### Backend Setup
+### Backend
 
 ```bash
 cd Backend
@@ -202,91 +206,84 @@ cd Backend
 pip install -r requirements.txt
 
 # Configure environment
-cp .env.example .env
-# Add your GROQ_API_KEY to .env for GlycomicsChat
+# Create a .env file with:
+#   GROQ_API_KEY=your_key_here
 
-# Start server
+# Start the server
 python start_server.py
 # OR
 uvicorn main:app --host 127.0.0.1 --port 5000 --reload
 ```
 
-Server runs at: `http://127.0.0.1:5000`  
-Swagger docs: `http://127.0.0.1:5000/docs`  
-Redoc: `http://127.0.0.1:5000/redoc`
+Server: `http://127.0.0.1:5000`  
+Swagger UI: `http://127.0.0.1:5000/docs`  
+ReDoc: `http://127.0.0.1:5000/redoc`
 
-### Frontend Setup
+### Frontend
 
 ```bash
 cd Frontend
 
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-# Dev server at http://localhost:5173
-
-# Build for production
-npm run build
+npm run dev        # dev server at http://localhost:5173
+npm run build      # production build
 ```
 
-> The frontend auto-detects the environment. On `localhost` it connects to `http://localhost:5000`. In production (same domain) it uses relative paths.
+The frontend connects to `http://localhost:5000` in development and uses relative paths in production.
 
 ---
 
 ## API Reference
 
-All endpoints accept and return JSON unless noted otherwise.
-
 ### Prediction
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/validate` | Validate IUPAC glycan sequence |
+| `POST` | `/api/validate` | Validate IUPAC glycan sequence against glycoword vocabulary |
 | `POST` | `/api/predict` | MPNN immunogenicity prediction |
 
 ### Clustering
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/cluster/run` | Run clustering (modes: `standard`, `optimal_k`, `outliers`) |
+| `POST` | `/api/cluster/run` | Clustering — mode: `standard`, `optimal_k`, `outliers`; metric includes `glycowork` graph similarity |
 
 ### Alignment & Comparison
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/align` | Global pairwise alignment (GLYSUM or custom scoring) |
-| `POST` | `/api/compare_glycans` | Tanimoto fingerprint similarity |
+| `POST` | `/api/compare_glycans` | Tanimoto similarity across five fingerprint types |
 
 ### Analysis
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/descriptor` | Molecular descriptor calculation |
+| `POST` | `/api/descriptor` | Molecular descriptors + fingerprints |
 | `POST` | `/api/characterize` | Monosaccharide characterization plot |
 | `POST` | `/api/glycan_insight` | Biological context (species, motifs, diseases) |
-| `POST` | `/api/motif/mutate` | Random motif mutation |
-| `POST` | `/api/motif/find` | Extract motifs from sequence |
+| `POST` | `/api/motif/mutate` | Random motif mutagenesis |
+| `POST` | `/api/motif/find` | Extract pentamer glycoword motifs |
 
 ### Visualization
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/visualize` | IUPAC → 3D MolBlock (for 3Dmol.js) |
-| `POST` | `/api/draw` | IUPAC → 2D SNFG image (base64 PNG) |
-| `GET`  | `/api/pathway` | KEGG pathway image |
-| `GET`  | `/api/search_pathways` | Search KEGG pathways |
+| `POST` | `/api/visualize` | IUPAC → 3D MDL Molfile (ETKDGv3 + MMFF94s + UFF) |
+| `POST` | `/api/draw` | IUPAC → SNFG 2D image with motif highlight (base64 PNG) |
+| `GET`  | `/api/pathway` | KEGG pathway image URL (REST + direct PNG fallback) |
+| `GET`  | `/api/search_pathways` | Search KEGG pathways (FastAPI Query param, min 3 chars) |
+| `GET`  | `/api/proxy_image` | Server-side KEGG image download (CORS bypass) |
 
 ### Creation
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/convert` | Format conversion (IUPAC/WURCS/GlycoCT/SMILES) |
-| `POST` | `/api/network` | Build biosynthetic network |
+| `POST` | `/api/convert` | Format conversion (IUPAC / WURCS / GlycoCT / SMILES) |
+| `POST` | `/api/network` | Build biosynthetic network (Cytoscape.js elements) |
 | `GET`  | `/api/network-parameters` | Available PTMs, roots, edge types |
-| `GET`  | `/api/download` | Download species glycan data as CSV |
 
 ### Chat
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/GlycomicsChat` | AI glycomics assistant |
-| `GET`  | `/api/health` | Health check + LLM connectivity |
-| `GET`  | `/api/tools/capabilities` | Available tool descriptions |
+| `POST` | `/api/GlycomicsChat` | AI glycomics assistant with LLM-based tool routing |
+| `GET`  | `/api/health` | Health check + LLM connectivity test |
+| `GET`  | `/api/tools/capabilities` | Tool descriptions and examples |
+| `GET`  | `/api/tools/categories` | Tools grouped by category (Literature, Databases) |
 
 ---
 
@@ -294,24 +291,24 @@ All endpoints accept and return JSON unless noted otherwise.
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | Home | Landing page with 3D viewer |
-| `/prediction` | Prediction | MPNN immunogenicity predictor |
-| `/GlycomicsChat` | GlycomicsChat | AI glycomics chat |
-| `/sequenceAlignment` | SequenceAlignment | GLYSUM-based alignment |
+| `/` | Home | Landing page |
+| `/GlycanMolecule` | GlycanMolecule | Click-to-build 3D molecule |
+| `/BiosyntheticNetworks` | BiosyntheticNetworks | Biosynthetic network builder |
+| `/GlycanFormatConverter` | GlycanFormatConverter | Format conversion |
+| `/GlycanDrawer` | GlycanDrawer | 2D SNFG drawing |
+| `/visualize` | VisualizePage | 3D structure viewer |
+| `/pathwayMaps` | PathwayViewer | KEGG pathway maps |
+| `/characterize` | CharacterizeForm | Monosaccharide analysis |
+| `/GlycanInsight` | GlycanInsight | Biological context lookup |
+| `/DescriptorCalculator` | DescriptorCalculator | Molecule descriptors |
+| `/MotifMutation` | MotifMutation | Motif mutation simulator |
 | `/CompareGlycans` | CompareGlycans | Fingerprint comparison |
+| `/sequenceAlignment` | SequenceAlignment | GLYSUM-based alignment |
 | `/cluster/multiple` | ClusterMultipleGlycans | Cluster ≥3 glycans |
 | `/cluster/optimize` | OptimalClusters | Find optimal cluster count |
 | `/cluster/outliers` | DetectOutlierGlycans | Detect structural outliers |
-| `/DescriptorCalculator` | DescriptorCalculator | Molecule descriptors |
-| `/characterize` | CharacterizeForm | Monosaccharide analysis |
-| `/GlycanInsight` | GlycanInsight | Biological context lookup |
-| `/MotifMutation` | MotifMutation | Motif mutation simulator |
-| `/visualize` | VisualizePage | 3D structure viewer |
-| `/GlycanDrawer` | GlycanDrawer | 2D SNFG drawing |
-| `/pathwayMaps` | PathwayViewer | KEGG pathway maps |
-| `/GlycanFormatConverter` | GlycanFormatConverter | Format conversion |
-| `/GlycanMolecule` | GlycanMolecule | 3D molecule builder |
-| `/BiosyntheticNetworks` | BiosyntheticNetworks | Biosynthetic network builder |
+| `/prediction` | Prediction | MPNN immunogenicity predictor |
+| `/GlycomicsChat` | GlycomicsChat | AI glycomics chat |
 | `/aboutus` | AboutUs | About the platform |
 | `/help` | Help | Documentation |
 
@@ -322,23 +319,26 @@ All endpoints accept and return JSON unless noted otherwise.
 The immunogenicity prediction uses a **Message Passing Neural Network (MPNN)** built with PyTorch Geometric.
 
 ### Architecture
-- **Embedding layer:** vocabulary size × 64
-- **MPNN Layer 1:** 64 → 64 with BatchNorm + ReLU
-- **MPNN Layer 2:** 64 → 64 with BatchNorm + ReLU
-- **Global mean pooling**
-- **Linear:** 64 → 32 → 1 (with dropout 0.5)
-- **Output:** sigmoid → ≥ 0.5 = Immunogenic
+```
+Embedding (|vocab|+1, 64)
+→ MPNNLayer 64→64 + BatchNorm + ReLU
+→ MPNNLayer 64→64 + BatchNorm + ReLU
+→ global_mean_pool
+→ Linear 64→32 + ReLU + Dropout(0.5)
+→ Linear 32→1 → sigmoid
+```
+Threshold 0.5 → Immunogenic / Non-Immunogenic.
 
 ### Input Representation
-Glycan sequences are tokenized into **glycowords** (5-token sliding windows of monosaccharides and linkages), converted to vocabulary indices, and represented as a graph with sequential edges.
+IUPAC sequences are tokenized into alternating [sugar, linkage] arrays. Consecutive 5-token windows (sugar–bond–sugar–bond–sugar, step 2) form **glycowords** that are indexed against `glycoword_vocab.json`. Tokens are nodes in a bidirectional sequential chain graph.
 
 ### Available Model Files
-| File | Architecture |
-|------|-------------|
-| `Models_MPNN_immunoClassifier_final.pt` | MPNN (active) |
-| `GAT_immunoClassifier_large.pt` | Graph Attention Network |
-| `GIN_immunoClassifier_large.pt` | Graph Isomorphism Network |
-| `LSTM_immunoClassifier_large.pt` | LSTM |
+| File | Architecture | Status |
+|------|-------------|--------|
+| `Models_MPNN_immunoClassifier_final.pt` | MPNN | **Active (deployed)** |
+| `GAT_immunoClassifier_large.pt` | Graph Attention Network | Stored |
+| `GIN_immunoClassifier_large.pt` | Graph Isomorphism Network | Stored |
+| `LSTM_immunoClassifier_large.pt` | LSTM | Stored |
 
 ---
 
@@ -346,10 +346,16 @@ Glycan sequences are tokenized into **glycowords** (5-token sliding windows of m
 
 | File | Description |
 |------|-------------|
-| `GLYSUM.xlsx` | Glycan substitution matrix for glycan-aware pairwise alignment |
+| `GLYSUM.xlsx` | Glycan substitution matrix (Alocci et al., *Glycobiology*, 2015) — used for glycan sequence alignment |
 | `merged_glycan_dataset.csv` | Main annotated glycan dataset |
-| `monosaccharides_counts.csv` | Monosaccharide frequency table used for mutation pool sampling |
-| `species_data.csv` | Glycan-species associations for dataset download |
+| `monosaccharides_counts.csv` | Monosaccharide frequency table used as replacement pool during motif mutation |
+| `species_data.csv` | Glycan–species associations |
+
+---
+
+## Scientific Reference
+
+See **`STATE_OF_THE_ART.md`** (and `STATE_OF_THE_ART.docx`) for a tool-by-tool comparison of GlycanBench against the existing state of the art in glycomics informatics, including precise algorithmic details and UX contributions for all 17 implemented tools.
 
 ---
 
@@ -362,7 +368,7 @@ Vigneshwaran CJ & Ashok Palaniappan.
 
 ## Authors
 
-**Vigneshwaran CJ**<sup>1</sup> & **Ashok Palaniappan**<sup>1,2</sup> *
+**Vigneshwaran CJ**<sup>1</sup> & **Ashok Palaniappan**<sup>1,2</sup>*
 
 <sup>1</sup> Systems Computational Biology Lab  
 <sup>2</sup> Bioinformatics Center  
@@ -372,4 +378,4 @@ School of Chemical & Biotechnology, SASTRA Deemed University
 
 ---
 
-© 2026 GlycanBench. All rights reserved. Only for academic non-commercial use.
+© 2026 GlycanBench. All rights reserved. For academic non-commercial use only.

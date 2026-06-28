@@ -96,12 +96,8 @@ def get_pathway_image_url(kegg_id: str):
 
 
 @pathway_api.get("/api/search_pathways")
-def search_pathways():
-    query = request.args.get("query")
-    logger.info(f"Received /search_pathways request: query='{query}'") # logger is now from logging module
-    if not query or len(query) < 3:
-        logger.warning("Search query too short.")
-        return {"error": "Query must be at least 3 characters long"}, 400
+def search_pathways(query: str = Query(..., min_length=3, description="Pathway name or keyword to search")):
+    logger.info(f"Received /search_pathways request: query='{query}'")
 
     try:
         search_url = KEGG_FIND_PATHWAY_URL.format(query=urllib.parse.quote(query))
@@ -113,7 +109,8 @@ def search_pathways():
         if response.text:
             lines = response.text.strip().split('\n')
             for line in lines:
-                if not line.strip(): continue
+                if not line.strip():
+                    continue
                 parts = line.split('\t')
                 if len(parts) == 2:
                     path_id_full, name = parts
@@ -125,19 +122,19 @@ def search_pathways():
 
     except requests.exceptions.Timeout:
         logger.error(f"KEGG API search timed out for query '{query}'.")
-        return {"error": "KEGG API request timed out"}, 504
+        raise HTTPException(status_code=504, detail="KEGG API request timed out")
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
-             logger.info(f"No pathways found for query '{query}'.")
-             return []
-        logger.error(f"KEGG API search HTTPError for query '{query}': {e.response.status_code} - {e.response.text}")
-        return {"error": f"KEGG API error: {e.response.status_code}"}, e.response.status_code
+            logger.info(f"No pathways found for query '{query}'.")
+            return []
+        logger.error(f"KEGG API search HTTPError for query '{query}': {e.response.status_code}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"KEGG API error: {e.response.status_code}")
     except requests.exceptions.RequestException as e:
         logger.error(f"Could not connect to KEGG API for search: {str(e)}")
-        return {"error": f"Could not connect to KEGG API: {str(e)}"}, 502
+        raise HTTPException(status_code=502, detail=f"Could not connect to KEGG API: {str(e)}")
     except Exception as e:
         logger.error(f"Unexpected error in pathway search: {str(e)}", exc_info=True)
-        return {"error": f"An unexpected server error occurred: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"An unexpected server error occurred: {str(e)}")
     
 @pathway_api.get("/api/proxy_image")
 async def proxy_image_download(url: str = Query(..., description="URL of the image to download")):
