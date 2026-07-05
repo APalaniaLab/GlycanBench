@@ -20,7 +20,8 @@ Backend/models/*.pt
 frontend_react/node_modules/
 frontend_react/dist/
 frontend_react/.env
-
+Vigneswaran-MTech25
+*.docx
 # Misc
 .DS_Store
 Thumbs.db
@@ -29,3 +30,7 @@ Thumbs.db
 .idea/
 .vscode/settings.json
 .vscode
+glycanbench_python_package
+
+Paper
+STATE_OF_THE_ART*

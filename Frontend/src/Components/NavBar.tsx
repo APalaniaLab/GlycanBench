@@ -6,7 +6,6 @@ import {
   FaMicroscope,
   FaAlignLeft,
   FaBrain,
-  FaFlask,
 } from "react-icons/fa";
 import { FaCodeCompare } from "react-icons/fa6";
 import { GrCluster } from "react-icons/gr";
@@ -100,16 +99,6 @@ const sidebarNavConfig: SidebarSection[] = [
       }
     ],
   },
-  // {
-  //   title: "Browse",
-  //   icon: <FaFlask className="text-orange-500" />,
-  //   items: [
-  //     { to: "/researchPapers", label: "Research Papers with PubMed AI" },
-  //     { to: "/DatasetDownloader", label: "Dataset Downloader" },
-  //     { to: "/PDBsearch", label: "PDB Search" },
-  //     { to: "/history", label: "Glycobiology History" },
-  //   ],
-  // },
 ];
 
 const navItems = [

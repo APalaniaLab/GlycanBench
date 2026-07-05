@@ -26,10 +26,6 @@ import OptimalClusters from "./Pages/Analyze/OptimalClusters";
 import DetectOutlierGlycans from "./Pages/Analyze/DetectOutlierGlycans";
 
 import GlycanInsight from "./Pages/Browse/GlycanInsight/GlycanInsight";
-import ResearchPapers from "./Pages/Browse/ResearchPapers/ResearchPapers";
-import DatasetDownloader from "./Pages/Browse/DatasetDownloader/DatasetDownloader";
-import GlycanSearch from "./Pages/Browse/GlycanSearch/GlycanSearch";
-import History from "./Pages/Browse/History/History";
 
 import SequenceAlignment from "./Pages/Align/SequenceAlignment/SequenceAlignment";
 
@@ -74,10 +70,6 @@ const App: React.FC = () => {
             <Route path="/cluster/outliers" element={<DetectOutlierGlycans />} />
 
             <Route path="/GlycanInsight" element={<GlycanInsight />} />
-            <Route path="/researchPapers" element={<ResearchPapers />} />
-            <Route path="/DatasetDownloader" element={<DatasetDownloader />} />
-            <Route path="/PDBsearch" element={<GlycanSearch />} />
-            <Route path="/history" element={<History />} />
 
             <Route
               path="/sequenceAlignment"
