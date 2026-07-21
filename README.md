@@ -102,20 +102,24 @@ GlycanBench is a full-stack integrated web platform for glycan analysis — span
 | requests | 2.31.0 | Sync HTTP (KEGG API proxy) |
 | python-dotenv | 1.0.0 | Environment configuration |
 
+> `matplotlib`, `scipy`, `scikit-learn`, `seaborn`, and `openpyxl` (needed for `pandas.read_excel` on `GLYSUM.xlsx`) are imported at runtime but **not pinned in `requirements.txt`** — currently satisfied transitively. Pin them explicitly if setting up a clean environment.
+
 ### Frontend
 | Package | Purpose |
 |---------|---------|
-| React 18 + TypeScript | UI framework |
-| Vite | Build tool |
-| Tailwind CSS | Styling |
+| React 19 + TypeScript | UI framework |
+| Vite (rolldown-vite fork) | Build tool |
+| Tailwind CSS v4 | Styling (CSS-first config, no `tailwind.config.js`) |
 | Framer Motion | Animations |
-| 3Dmol.js | 3D molecular visualization |
+| 3Dmol.js + NGL | 3D molecular visualization |
 | Cytoscape.js | Biosynthetic network graph |
 | Chart.js + react-chartjs-2 | Doughnut & bar charts |
 | react-zoom-pan-pinch | KEGG pathway interactive viewer |
 | React Router v7 | Client-side routing |
 | Axios | HTTP requests |
-| React Icons | Icon library |
+| React Icons / lucide-react | Icon libraries |
+
+> **Node.js requirement:** rolldown-vite needs Node **`^20.19.0` or `>=22.12.0`**. On Windows, if you hit `Cannot find native binding` from rolldown after `npm install`, it's almost always an old Node version silently skipping the platform-specific optional dependency — upgrade Node (e.g. via `nvm-windows`) and reinstall (`rm -rf node_modules package-lock.json && npm install`), don't just retry the install.
 
 ---
 
@@ -160,28 +164,40 @@ GlycanBench/
 │   │   ├── merged_glycan_dataset.csv
 │   │   ├── monosaccharides_counts.csv # Monosaccharide pool for mutation sampling
 │   │   └── species_data.csv
-│   └── vocab/
-│       └── glycoword_vocab.json       # Glycoword vocabulary for MPNN
+│   ├── vocab/
+│   │   └── glycoword_vocab.json       # Glycoword vocabulary for MPNN
+│   └── tests/                         # Ad-hoc integration/diagnostic scripts (not pytest)
+│       ├── test_api_integration.py
+│       ├── test_dependencies.py
+│       ├── test_endpoint_direct.py
+│       ├── test_endpoint_fix.py
+│       ├── test_live_integration.py
+│       ├── test_working_endpoints.py
+│       └── diagnose_api.py
 │
 ├── Frontend/
 │   └── src/
-│       ├── App.tsx                    # Router + 24 route definitions
+│       ├── App.tsx                    # Router + 20 route definitions
 │       ├── Components/
 │       │   ├── Home.tsx
 │       │   ├── Header.tsx
 │       │   ├── NavBar.tsx             # Desktop mega-menu + mobile sidebar
-│       │   └── Footer.tsx
+│       │   ├── Footer.tsx
+│       │   └── Logo.tsx
 │       └── Pages/
+│           ├── AboutUs.tsx
+│           ├── Help.tsx
 │           ├── Predict/Prediction/    # MPNN immunogenicity predictor
 │           ├── Predict/Chat/          # GlycomicsChat UI
-│           ├── Analyze/               # Characterize, Descriptors, Insight,
-│           │                          #   MotifMutation, Visualization, Draw,
-│           │                          #   Compare, Cluster (×3), FormatConverter,
-│           │                          #   PathwayViewer
+│           ├── Analyze/               # Characterize, Descriptors, MotifMutation,
+│           │                          #   Visualization, GlycanDrawer, Compare,
+│           │                          #   Cluster (×3), FormatConverter, PathwayViewer
 │           ├── Align/SequenceAlignment/
 │           ├── Create/GlycanMolecule/
-│           ├── Create/BiosyntheticNetworks/
-│           └── Browse/GlycanInsight/
+│           ├── Create/BiosyntheticNetworks/  # + 9 helper components (controls, graph, settings)
+│           └── Browse/
+│               ├── GlycanInsight/
+│               └── ChatGlyco/         # not routed — unused, kept on disk
 │
 ├── STATE_OF_THE_ART.md                # Tool-by-tool scientific comparison table
 ├── STATE_OF_THE_ART.docx              # Word version of the above
@@ -194,7 +210,7 @@ GlycanBench/
 
 ### Prerequisites
 - Python 3.10+
-- Node.js 18+
+- Node.js `^20.19.0` or `>=22.12.0` (required by rolldown-vite — see [Tech Stack](#tech-stack))
 - A [Groq API key](https://console.groq.com/) for GlycomicsChat
 
 ### Backend
@@ -208,6 +224,8 @@ pip install -r requirements.txt
 # Configure environment
 # Create a .env file with:
 #   GROQ_API_KEY=your_key_here
+#   LANGCHAIN_API_KEY=your_key_here          # optional, for LangChain tracing
+#   CORS_ALLOWED_ORIGINS=http://localhost:5173  # optional, comma-separated; defaults to localhost:5173
 
 # Start the server
 python start_server.py
@@ -235,6 +253,8 @@ The frontend connects to `http://localhost:5000` in development and uses relativ
 
 ## API Reference
 
+> Full request/response schemas: `http://127.0.0.1:5000/docs` (Swagger). Tables below are a quick reference, kept in sync with the router source.
+
 ### Prediction
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -258,8 +278,9 @@ The frontend connects to `http://localhost:5000` in development and uses relativ
 | `POST` | `/api/descriptor` | Molecular descriptors + fingerprints |
 | `POST` | `/api/characterize` | Monosaccharide characterization plot |
 | `POST` | `/api/glycan_insight` | Biological context (species, motifs, diseases) |
-| `POST` | `/api/motif/mutate` | Random motif mutagenesis |
-| `POST` | `/api/motif/find` | Extract pentamer glycoword motifs |
+| `POST` | `/api/motif/mutate` | Random motif mutagenesis (returns motif frequency counts + mutated labels) |
+| `POST` | `/api/motif/small` | Flattened sugar/linkage token string for a sequence |
+| `POST` | `/api/motif/find` | Extract pentamer (5-token sliding-window) glycoword motifs |
 
 ### Visualization
 | Method | Endpoint | Description |
@@ -277,13 +298,27 @@ The frontend connects to `http://localhost:5000` in development and uses relativ
 | `POST` | `/api/network` | Build biosynthetic network (Cytoscape.js elements) |
 | `GET`  | `/api/network-parameters` | Available PTMs, roots, edge types |
 
+### Species / Data
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/api/download` | Download `glycowork` species dataset filtered by `species` query param, as CSV |
+
 ### Chat
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/GlycomicsChat` | AI glycomics assistant with LLM-based tool routing |
+| `POST` | `/api/GlycomicsChat` | AI glycomics assistant with LLM-based tool routing (PubMed / ArXiv / GlyTouCan) |
 | `GET`  | `/api/health` | Health check + LLM connectivity test |
 | `GET`  | `/api/tools/capabilities` | Tool descriptions and examples |
+| `GET`  | `/api/tools/capabilities/examples` | Example questions per tool |
+| `POST` | `/api/tools/capabilities/{tool_name}` | Detailed info for one specific tool |
 | `GET`  | `/api/tools/categories` | Tools grouped by category (Literature, Databases) |
+| `GET`  | `/api/tools/categories/{category_name}` | Tools within one category |
+| `POST` | `/api/validate-accession` | Validate a GlyTouCan/WURCS/IUPAC accession string |
+| `GET`  | `/api/test-tools` | Connectivity test for PubMed/ArXiv integrations |
+| `POST` | `/api/test-capability-query` | Debug endpoint: tests capability-query classification |
+| `POST` | `/api/test-intelligent-selection` | Debug endpoint: tests LLM/keyword tool-routing logic |
+
+> `Backend/api/chat_api.py` is an unused re-export shim — `main.py` mounts `api/chat/router.py` directly.
 
 ---
 
