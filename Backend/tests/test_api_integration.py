@@ -5,7 +5,7 @@ Test script for comprehensive API integration in chat system
 import asyncio
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.chat.api_integration import (
     analyze_query_for_apis, 

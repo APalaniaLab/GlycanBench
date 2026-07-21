@@ -16,6 +16,9 @@ env/
 # Large model files (stored separately)
 Backend/models/*.pt
 
+# Runtime-generated export artifacts
+Backend/exports/*.csv
+
 # Node / React
 frontend_react/node_modules/
 frontend_react/dist/
