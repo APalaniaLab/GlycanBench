@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/1012488089.svg)](https://doi.org/10.5281/zenodo.22756268)
+
 # GlycanBench
 
 > **A unified resource for working with glycans**
