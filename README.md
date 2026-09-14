@@ -1,5 +1,4 @@
-
-[![DOI](https://zenodo.org/badge/1012488089.svg)](https://doi.org/10.5281/zenodo.22756268)
+[![DOI](https://shields.io)](https://doi.org/10.5281/zenodo.22756268)
 
 
 # GlycanBench
