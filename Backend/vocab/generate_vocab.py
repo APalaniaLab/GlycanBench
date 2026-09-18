@@ -25,7 +25,7 @@ def process_glycans(glycan_list):
 # --- Main script logic ---
 print("Generating vocabulary for the backend...")
 
-DATASET_PATH = "dataset/merged_glycan_dataset.csv"
+DATASET_PATH = "dataset/merged_glycan_dataset_clean.csv"
 OUTPUT_FILE = "glycoword_vocab.json"
 
 if not os.path.exists(DATASET_PATH):

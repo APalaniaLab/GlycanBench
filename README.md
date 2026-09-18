@@ -382,9 +382,41 @@ IUPAC sequences are tokenized into alternating [sugar, linkage] arrays. Consecut
 | File | Description |
 |------|-------------|
 | `GLYSUM.xlsx` | Glycan substitution matrix (Alocci et al., *Glycobiology*, 2015) — used for glycan sequence alignment |
-| `merged_glycan_dataset.csv` | Main annotated glycan dataset |
+| `merged_glycan_dataset.csv` | Main annotated glycan dataset — 1,356 rows, 35 columns; see schema note below |
 | `monosaccharides_counts.csv` | Monosaccharide frequency table used as replacement pool during motif mutation |
 | `species_data.csv` | Glycan–species associations |
+
+### Dataset schema and sources
+
+`merged_glycan_dataset.csv` is the union of two source files:
+
+| Source tag (`source` column) | Rows | Label logic |
+|-------------------------------|------|-------------|
+| `glycobase.csv` | 1,320 | Immunogenicity label assigned by the glycowork / SugarBase pipeline (0 = non-immunogenic, 1 = immunogenic) |
+| `immunogenic_glycans_clean.csv` | 36 | Hand-curated positives (label = 1) for well-known tumor-associated and pathogen carbohydrate antigens |
+
+The extended column set — `glytoucan_id`, `glycan_type`, `disease_association`, `disease_id`, `tissue_sample`, `tissue_id`, `Species`, `Genus`, `Family`, `Order`, `Class`, `Phylum`, `Kingdom`, `Domain` — matches the **SugarBase** schema distributed with the [glycowork](https://github.com/BojarLab/glycowork) package (`v12_sugarbase.json`), **not** NIBRT GlycoBase. Citations should reference the glycowork SugarBase accordingly.
+
+### Known data-integrity issue: 12 contradictory labels
+
+Twelve glycan strings appear in both source files with opposite labels (0 from `glycobase.csv`, 1 from `immunogenic_glycans_clean.csv`). The model trains on identical inputs with conflicting targets, which corrupts the loss surface for these structures. The affected glycans are all clinically or biologically significant:
+
+| Glycan (IUPAC-condensed) | Common name |
+|--------------------------|-------------|
+| `NeuNAc(a2-3)Gal(b1-3)[Fuc(a1-4)]GlcNAc` | Sialyl-Lewis A (SLe^a / CA19-9 epitope) |
+| `Fuc(a1-2)Gal(b1-4)[Fuc(a1-3)]GlcNAc` | Lewis Y (Le^y) |
+| `NeuNAc(a2-3)Gal(b1-3)[NeuNAc(a2-6)]GalNAc` | Disialyl-T / sialyl core-1 |
+| `NeuNAc(a2-3)Gal(b1-3)GalNAc` | Sialyl-T antigen |
+| `NeuNAc(a2-3)Gal(b1-4)Glc` | 3′-sialyllactose (3-SL) |
+| `NeuNAc(a2-3)Gal(b1-4)GlcNAc` | Sialyl-LacNAc |
+| `NeuNAc(a2-6)Gal(b1-4)GlcNAc(b1-3)Gal(b1-4)Glc` | 6-SL-LacNAc |
+| `NeuNAc(a2-3)Gal(b1-3)GlcNAc(b1-3)Gal(b1-4)Glc` | Sialyl-LNT |
+| `Gal(b1-4)GlcNAc(b1-6)GalNAc` | Core-2 trisaccharide |
+| `Fuc(a1-2)Gal(b1-3)GalNAc` | T antigen (core-1 disaccharide) |
+| `Man(a1-2)Man(a1-2)Man` | Trimannosyl (high-mannose fragment) |
+| `Gal(b1-3)GlcNAc(b1-3)Gal(b1-4)Glc` | Lacto-N-tetraose derivative |
+
+**Resolution:** For each conflict, the `immunogenic_glycans_clean.csv` label (1) is authoritative — these are experimentally confirmed antigens. The deduplicated dataset resolves each collision by keeping the row from `immunogenic_glycans_clean.csv` and dropping the conflicting `glycobase.csv` row, yielding **1,344 unique glycans** with consistent labels. Run `python Backend/dataset/deduplicate_dataset.py` to regenerate the clean file.
 
 ---
 
