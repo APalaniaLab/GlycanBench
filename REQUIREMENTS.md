@@ -104,7 +104,8 @@ The platform targets glycobiology researchers, bioinformaticians, and students w
 | `GAT_*.pt`, `GIN_*.pt`, `LSTM_*.pt` | Alternative architectures, stored, not deployed |
 | `glycoword_vocab.json` | Glycoword (5-token sliding window) vocabulary for tokenization |
 | `GLYSUM.xlsx` | Glycan substitution matrix (Alocci et al., 2015) |
-| `merged_glycan_dataset.csv` | 1,356 annotated glycans (SugarBase schema + curated positives) |
+| `merged_glycan_dataset.csv` | Raw concatenation — 1,356 rows (includes 12 label conflicts; kept for audit) |
+| `merged_glycan_dataset_clean.csv` | Canonical training dataset — 1,344 unique glycans (672 neg / 672 pos); split column stamped (train 1,075 / test 269) |
 | `monosaccharides_counts.csv` | Replacement pool for motif mutation |
 | `species_data.csv` | Glycan–species associations (download endpoint) |
 
@@ -299,10 +300,13 @@ Provide a single, free, browser-based workbench where a glycobiologist can creat
 | ID | Requirement |
 |----|-------------|
 | TR-D01 | `merged_glycan_dataset.csv` follows the glycowork SugarBase schema; source column distinguishes `glycobase.csv` (1,320 rows) from `immunogenic_glycans_clean.csv` (36 rows) |
-| TR-D02 | Known 12 contradictory labels documented in README; deduplicated version produced by `Backend/dataset/deduplicate_dataset.py` → `merged_glycan_dataset_clean.csv` |
-| TR-D03 | `glycoword_vocab.json` regenerated via `Backend/vocab/generate_vocab.py` whenever the training dataset changes |
-| TR-D04 | Model files (`.pt`) versioned alongside the vocabulary they were trained with |
-| TR-D05 | GLYSUM matrix loaded from `GLYSUM.xlsx` at startup; citation Alocci et al., *Glycobiology*, 2015 |
+| TR-D02 | 12 contradictory labels resolved in `merged_glycan_dataset_clean.csv` (1,344 rows) by `Backend/dataset/deduplicate_dataset.py`; raw file kept for audit |
+| TR-D03 | Reproducible stratified 80/20 split (train 1,075 / test 269, `random_state=42`) stamped in `split` column by `Backend/dataset/make_split.py` |
+| TR-D04 | `glycoword_vocab.json` regenerated via `Backend/vocab/generate_vocab.py` whenever the training dataset changes |
+| TR-D05 | Model files (`.pt`) versioned alongside the vocabulary they were trained with |
+| TR-D06 | GLYSUM matrix loaded from `GLYSUM.xlsx` at startup; citation Alocci et al., *Glycobiology*, 2015 |
+| TR-D07 | `Backend/evaluation/train_evaluate.py` trains all four models on the train split and writes metrics to `Backend/evaluation/results/` |
+| TR-D08 | `Backend/evaluation/per_pathogen_results.py` writes per-family and per-phylum metric folders under `Backend/evaluation/results/per_pathogen/` |
 
 ### 4.6 Testing Requirements
 
@@ -333,7 +337,7 @@ Provide a single, free, browser-based workbench where a glycobiologist can creat
 - GlycomicsChat requires a valid Groq API key and internet access; without it the chat feature is unavailable while all other tools continue to work.
 - IUPAC → GlycoCT/WURCS conversion is not supported by the underlying libraries; this limitation is surfaced to users rather than worked around.
 - 3D conformers are force-field (MMFF94s/UFF) quality, not GLYCAM-level; suitable for visualization, not for simulation.
-- The MPNN model was trained on 1,356 glycans; predictions are indicative and carry a confidence score.
+- The MPNN model was trained on 1,075 glycans (80 % stratified split of 1,344 unique structures; `random_state=42`); 269 held-out test structures are used for evaluation. Predictions are indicative and carry a confidence score.
 
 ### Assumptions
 

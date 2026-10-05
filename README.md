@@ -164,11 +164,18 @@ GlycanBench/
 │   │   └── LSTM_immunoClassifier_large.pt
 │   ├── dataset/
 │   │   ├── GLYSUM.xlsx                # Glycan substitution matrix (Alocci et al. 2015)
-│   │   ├── merged_glycan_dataset.csv
+│   │   ├── merged_glycan_dataset.csv          # Raw source (1,356 rows; kept for audit)
+│   │   ├── merged_glycan_dataset_clean.csv    # Canonical dataset (1,344 rows; split stamped)
+│   │   ├── deduplicate_dataset.py             # Resolves 12 label conflicts → clean CSV
+│   │   ├── make_split.py                      # Stamps reproducible 80/20 split column
 │   │   ├── monosaccharides_counts.csv # Monosaccharide pool for mutation sampling
 │   │   └── species_data.csv
 │   ├── vocab/
 │   │   └── glycoword_vocab.json       # Glycoword vocabulary for MPNN
+│   ├── evaluation/
+│   │   ├── train_evaluate.py          # Train all 4 models; write metrics to results/
+│   │   ├── per_pathogen_results.py    # Per-family / per-phylum breakdown
+│   │   └── results/                   # Created on first run (git-ignored)
 │   └── tests/                         # Ad-hoc integration/diagnostic scripts (not pytest)
 │       ├── test_api_integration.py
 │       ├── test_dependencies.py
@@ -385,7 +392,8 @@ IUPAC sequences are tokenized into alternating [sugar, linkage] arrays. Consecut
 | File | Description |
 |------|-------------|
 | `GLYSUM.xlsx` | Glycan substitution matrix (Alocci et al., *Glycobiology*, 2015) — used for glycan sequence alignment |
-| `merged_glycan_dataset.csv` | Main annotated glycan dataset — 1,356 rows, 35 columns; see schema note below |
+| `merged_glycan_dataset.csv` | Raw concatenation — 1,356 rows (includes 12 label conflicts; kept for audit) |
+| `merged_glycan_dataset_clean.csv` | Canonical training dataset — 1,344 rows, 35 columns; conflicts resolved; see schema note below |
 | `monosaccharides_counts.csv` | Monosaccharide frequency table used as replacement pool during motif mutation |
 | `species_data.csv` | Glycan–species associations |
 
@@ -419,7 +427,23 @@ Twelve glycan strings appear in both source files with opposite labels (0 from `
 | `Man(a1-2)Man(a1-2)Man` | Trimannosyl (high-mannose fragment) |
 | `Gal(b1-3)GlcNAc(b1-3)Gal(b1-4)Glc` | Lacto-N-tetraose derivative |
 
-**Resolution:** For each conflict, the `immunogenic_glycans_clean.csv` label (1) is authoritative — these are experimentally confirmed antigens. The deduplicated dataset resolves each collision by keeping the row from `immunogenic_glycans_clean.csv` and dropping the conflicting `glycobase.csv` row, yielding **1,344 unique glycans** with consistent labels. Run `python Backend/dataset/deduplicate_dataset.py` to regenerate the clean file.
+**Resolution:** For each conflict, the `immunogenic_glycans_clean.csv` label (1) is authoritative — these are experimentally confirmed antigens. The deduplicated dataset resolves each collision by keeping the row from `immunogenic_glycans_clean.csv` and dropping the conflicting `glycobase.csv` row, yielding **1,344 unique glycans** (672 negative / 672 positive) with consistent labels.
+
+**Reproducible 80/20 split** (stratified, `random_state=42`):
+
+| Partition | Glycans | Negative (0) | Positive (1) |
+|-----------|---------|--------------|--------------|
+| Train     | 1,075   | 537          | 538          |
+| Test      | 269     | 135          | 134          |
+| **Total** | **1,344** | **672**    | **672**      |
+
+The `split` column in `merged_glycan_dataset_clean.csv` encodes this assignment (`train` / `test`).
+
+Regeneration scripts:
+- `python Backend/dataset/deduplicate_dataset.py` — rebuild `merged_glycan_dataset_clean.csv` from scratch
+- `python Backend/dataset/make_split.py` — re-stamp the split column (identical result every run)
+- `python Backend/evaluation/train_evaluate.py` — retrain all four models and write held-out metrics
+- `python Backend/evaluation/per_pathogen_results.py` — write per-family / per-phylum result folders
 
 ---
 
